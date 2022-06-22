@@ -13,7 +13,12 @@ interface Decimals {
 }
 
 interface SpecialSwap {
-    function specialSwap(uint256 _id, address originalOwner, address[] memory path, uint256 totalPurchase) external;
+  function specialSwap(
+    uint256 _id,
+    address originalOwner,
+    address[] memory path,
+    uint256 totalPurchase
+  ) external;
 }
 
 contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
@@ -32,7 +37,11 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @dev admin address
   address private admin;
 
-  constructor(address payable _weth, string memory uri, address _admin) ERC721('HedgeyOptions', 'HDGOPT') {
+  constructor(
+    address payable _weth,
+    string memory uri,
+    address _admin
+  ) ERC721('HedgeyOptions', 'HDGOPT') {
     weth = _weth;
     baseURI = uri;
     admin = _admin;
@@ -59,7 +68,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   }
 
   function whitelistSwapper(address _swapper) external {
-    require(msg.sender == admin, "not the admin");
+    require(msg.sender == admin, 'not the admin');
     swappers[_swapper] = true;
   }
 
@@ -133,7 +142,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     /// @dev calculate the total purchase amount, which is the strike times the amount
     /// @dev adjusted for the token decimals: because strike is in token decimals, amount in paymentCurrency decimals, and we want to send paymentCurrency
     /// @dev so we divide by tokenDecimals to be left with paymentCurrency decimals up top
-    uint256 _totalPurchase = (_strike * _amount) / (10 ** Decimals(_token).decimals());
+    uint256 _totalPurchase = (_strike * _amount) / (10**Decimals(_token).decimals());
     require(IERC20(_paymentCurrency).balanceOf(_holder) >= _totalPurchase, 'OPT05');
     /// @dev transfer the total purchase from the holder to the creator
     SafeERC20.safeTransferFrom(IERC20(_paymentCurrency), _holder, _creator, _totalPurchase);
@@ -158,7 +167,11 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     SafeERC20.safeTransfer(IERC20(option.token), option.creator, option.amount);
   }
 
-  function specialExercise(uint256 _id, address swapper, address[] memory path) external nonReentrant {
+  function specialExercise(
+    uint256 _id,
+    address swapper,
+    address[] memory path
+  ) external nonReentrant {
     /// @dev ensure that only the owner of the NFT can call this function
     require(ownerOf(_id) == msg.sender, 'OPT02');
     /// @dev pull the option data from storage and keep in memory to check requirements and exercise
@@ -169,7 +182,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     require(path.length > 1, 'OPT10');
     _transfer(msg.sender, swapper, _id);
     /// @dev call the swap function which will flash loan borrow tokens from an AMM and exercise the option and payout both parties
-    uint256 _totalPurchase = (option.strike * option.amount) / (10 ** Decimals(option.token).decimals());
+    uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());
     SpecialSwap(swapper).specialSwap(_id, msg.sender, path, _totalPurchase);
   }
 
