@@ -7,19 +7,9 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-
-interface Decimals {
-  function decimals() external view returns (uint256);
-}
-
-interface SpecialSwap {
-  function specialSwap(
-    uint256 _id,
-    address originalOwner,
-    address[] memory path,
-    uint256 totalPurchase
-  ) external;
-}
+import './interfaces/Decimals.sol';
+import './interfaces/SpecialSwap.sol';
+import './libraries/TransferHelper.sol';
 
 contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -105,7 +95,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 newItemId = _tokenIds.current();
     require(_amount > 0 && _token != address(0) && _expiry > block.timestamp, 'OPT01');
     /// @dev pulls funds from the msg.sender into this contract for escrow to be locked until exercised
-    SafeERC20.safeTransferFrom(IERC20(_token), msg.sender, address(this), _amount);
+    TransferHelper.transferTokens(_token, msg.sender, address(this), _amount);
     /// @dev generates the new option struct in storage mapped to the NFT Id
     options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender);
     /// @dev this safely mints an NFT to the _holder address at the current counter index newItemID.
@@ -145,15 +135,17 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 _totalPurchase = (_strike * _amount) / (10**Decimals(_token).decimals());
     require(IERC20(_paymentCurrency).balanceOf(_holder) >= _totalPurchase, 'OPT05');
     /// @dev transfer the total purchase from the holder to the creator
-    SafeERC20.safeTransferFrom(IERC20(_paymentCurrency), _holder, _creator, _totalPurchase);
+    TransferHelper.transferPayment(weth, _paymentCurrency, _holder, payable(_creator), _totalPurchase);
+    //SafeERC20.safeTransferFrom(IERC20(_paymentCurrency), _holder, _creator, _totalPurchase);
     /// @dev transfer the tokens in this contract to the holder
-    SafeERC20.safeTransfer(IERC20(_token), _holder, _amount);
+    TransferHelper.withdrawTokens(_token, _holder, _amount);
+    //SafeERC20.safeTransfer(IERC20(_token), _holder, _amount);
   }
 
   function returnExpiredOption(uint256 _id) external nonReentrant {
     Option memory option = options[_id];
     /// @dev only the creator can burn this NFT
-    require(option.creator == msg.sender, 'OPT06');
+    require(option.creator == msg.sender || ownerOf(_id) == msg.sender, 'OPT06');
     /// @dev require that the expiration date is in the past
     require(option.expiry < block.timestamp, 'OPT07');
     /// @dev require amount to be greater than 0
@@ -164,7 +156,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     /// @dev delete the options struct so that the owner cannot call this function again
     delete options[_id];
     /// @dev retun tokens back to creator
-    SafeERC20.safeTransfer(IERC20(option.token), option.creator, option.amount);
+    TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
+    //SafeERC20.safeTransfer(IERC20(option.token), option.creator, option.amount);
   }
 
   function specialExercise(
