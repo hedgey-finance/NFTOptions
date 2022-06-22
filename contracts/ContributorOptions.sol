@@ -57,9 +57,17 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     emit URISet(_uri);
   }
 
-  function whitelistSwapper(address _swapper) external {
-    require(msg.sender == admin, 'not the admin');
+  modifier onlyAdmin() {
+        require(admin == msg.sender, "not admin");
+        _;
+    }
+
+  function whitelistSwapper(address _swapper) external onlyAdmin {
     swappers[_swapper] = true;
+  }
+
+  function changeAdmin(address _newAdmin) external onlyAdmin {
+    admin = _newAdmin;
   }
 
   function isSwapperWhitelist(address _swapper) external view returns (bool isWhiteListed) {
