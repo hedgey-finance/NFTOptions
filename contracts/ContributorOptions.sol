@@ -191,7 +191,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     require(option.expiry < block.timestamp || option.vestDate > block.timestamp, 'OPT07');
     /// @dev require amount to be greater than 0
     require(option.amount > 0, 'OPT08');
-    emit OptionReturned(_id);
+    emit OptionBurned(_id);
     /// @dev burn the NFT
     _burn(_id);
     /// @dev delete the options struct so that the owner cannot call this function again
@@ -214,6 +214,6 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     bool _swappable
   );
   event OptionExercised(uint256 _id);
-  event OptionReturned(uint256 _id);
+  event OptionBurned(uint256 _id);
   event URISet(string _uri);
 }
