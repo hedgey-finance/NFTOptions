@@ -58,9 +58,9 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   }
 
   modifier onlyAdmin() {
-        require(admin == msg.sender, "not admin");
-        _;
-    }
+    require(admin == msg.sender, 'not admin');
+    _;
+  }
 
   function whitelistSwapper(address _swapper) external onlyAdmin {
     swappers[_swapper] = true;
@@ -111,7 +111,18 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     /// @dev this safely mints an NFT to the _holder address at the current counter index newItemID.
     /// @dev _safeMint ensures that the receiver address can receive and handle ERC721s - which is either a normal wallet, or a smart contract that has implemented ERC721 receiver
     _safeMint(_holder, newItemId);
-    emit OptionCreated(newItemId, _holder, _amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender, _swappable);
+    emit OptionCreated(
+      newItemId,
+      _holder,
+      _amount,
+      _token,
+      _expiry,
+      _vestDate,
+      _strike,
+      _paymentCurrency,
+      msg.sender,
+      _swappable
+    );
   }
 
   function exerciseOption(uint256 _id) external nonReentrant {
@@ -146,28 +157,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     require(IERC20(_paymentCurrency).balanceOf(_holder) >= _totalPurchase, 'OPT05');
     /// @dev transfer the total purchase from the holder to the creator
     TransferHelper.transferPayment(weth, _paymentCurrency, _holder, payable(_creator), _totalPurchase);
-    //SafeERC20.safeTransferFrom(IERC20(_paymentCurrency), _holder, _creator, _totalPurchase);
     /// @dev transfer the tokens in this contract to the holder
     TransferHelper.withdrawTokens(_token, _holder, _amount);
-    //SafeERC20.safeTransfer(IERC20(_token), _holder, _amount);
-  }
-
-  function returnExpiredOption(uint256 _id) external nonReentrant {
-    Option memory option = options[_id];
-    /// @dev only the creator can burn this NFT
-    require(option.creator == msg.sender || ownerOf(_id) == msg.sender, 'OPT06');
-    /// @dev require that the expiration date is in the past
-    require(option.expiry < block.timestamp, 'OPT07');
-    /// @dev require amount to be greater than 0
-    require(option.amount > 0, 'OPT08');
-    emit OptionReturned(_id);
-    /// @dev burn the NFT
-    _burn(_id);
-    /// @dev delete the options struct so that the owner cannot call this function again
-    delete options[_id];
-    /// @dev retun tokens back to creator
-    TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
-    //SafeERC20.safeTransfer(IERC20(option.token), option.creator, option.amount);
   }
 
   function specialExercise(
@@ -188,6 +179,25 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     /// @dev call the swap function which will flash loan borrow tokens from an AMM and exercise the option and payout both parties
     uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());
     SpecialSwap(swapper).specialSwap(_id, msg.sender, path, _totalPurchase);
+  }
+
+  /// @notice function that will return expired, or burn un-vested options
+  /// and will deliver back the tokens to the creator and delete the struct and option entirely
+  function burnOption(uint256 _id) external nonReentrant {
+    Option memory option = options[_id];
+    /// @dev only the creator or owner can burn it (not sure why the owner would burn it, but no reason they couldn't)
+    require(option.creator == msg.sender || ownerOf(_id) == msg.sender, 'OPT06');
+    /// @dev require that the expiration date is in the past or that the vestdate is in the future
+    require(option.expiry < block.timestamp || option.vestDate > block.timestamp, 'OPT07');
+    /// @dev require amount to be greater than 0
+    require(option.amount > 0, 'OPT08');
+    emit OptionReturned(_id);
+    /// @dev burn the NFT
+    _burn(_id);
+    /// @dev delete the options struct so that the owner cannot call this function again
+    delete options[_id];
+    /// @dev retun tokens back to creator
+    TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
   }
 
   /// @notice events
