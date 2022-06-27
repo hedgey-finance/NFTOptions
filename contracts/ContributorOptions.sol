@@ -82,6 +82,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 strike;
     address paymentCurrency;
     address creator;
+    bool swappable;
   }
 
   mapping(uint256 => Option) public options;
@@ -95,7 +96,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 _expiry,
     uint256 _vestDate,
     uint256 _strike,
-    address _paymentCurrency
+    address _paymentCurrency,
+    bool _swappable
   ) external nonReentrant {
     /// @dev increment our counter by 1
     _tokenIds.increment();
@@ -105,11 +107,11 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     /// @dev pulls funds from the msg.sender into this contract for escrow to be locked until exercised
     TransferHelper.transferTokens(_token, msg.sender, address(this), _amount);
     /// @dev generates the new option struct in storage mapped to the NFT Id
-    options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender);
+    options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender, _swappable);
     /// @dev this safely mints an NFT to the _holder address at the current counter index newItemID.
     /// @dev _safeMint ensures that the receiver address can receive and handle ERC721s - which is either a normal wallet, or a smart contract that has implemented ERC721 receiver
     _safeMint(_holder, newItemId);
-    emit OptionCreated(newItemId, _holder, _amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender);
+    emit OptionCreated(newItemId, _holder, _amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender, _swappable);
   }
 
   function exerciseOption(uint256 _id) external nonReentrant {
@@ -181,6 +183,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     require(option.amount > 0, 'OPT04');
     require(swappers[swapper], 'OPT09');
     require(path.length > 1, 'OPT10');
+    require(option.swappable, 'OPT11');
     _transfer(msg.sender, swapper, _id);
     /// @dev call the swap function which will flash loan borrow tokens from an AMM and exercise the option and payout both parties
     uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());
@@ -197,7 +200,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 _vestDate,
     uint256 _strike,
     address _paymentCurrency,
-    address _creator
+    address _creator,
+    bool _swappable
   );
   event OptionExercised(uint256 _id);
   event OptionReturned(uint256 _id);
