@@ -10,6 +10,7 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './interfaces/Decimals.sol';
 import './interfaces/SpecialSwap.sol';
 import './libraries/TransferHelper.sol';
+import 'hardhat/console.sol';
 
 contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -58,6 +59,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   }
 
   modifier onlyAdmin() {
+    /// What would be your opinion on keeping the same error code format and adding a README.md to the project to describe the error code
     require(admin == msg.sender, 'not admin');
     _;
   }
@@ -89,6 +91,15 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
 
   receive() external payable {}
 
+  /// Creates an option
+  /// @param _holder The address to min the NFT to
+  /// @param _amount The number of tokens that will be locked up in this option
+  /// @param _token The token to lock up in this option
+  /// @param _expiry The date in unix time when this option expires
+  /// @param _vestDate The date when this option will be available to be exercised
+  /// @param _strike The price at which this option can be exercised
+  /// @param _paymentCurrency The currency the purchaser will pay for this option
+  /// @param _swappable Sets this option to be swappable
   function createOption(
     address _holder,
     uint256 _amount,
@@ -99,9 +110,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     address _paymentCurrency,
     bool _swappable
   ) external nonReentrant {
-    /// @dev increment our counter by 1
     _tokenIds.increment();
-    /// @dev set our newItemID do the current counter uint
     uint256 newItemId = _tokenIds.current();
     require(_amount > 0 && _token != address(0) && _expiry > block.timestamp, 'OPT01');
     /// @dev pulls funds from the msg.sender into this contract for escrow to be locked until exercised
@@ -125,18 +134,17 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     );
   }
 
-  function exerciseOption(uint256 _id) external nonReentrant {
+  function exerciseOption(uint256 id) external nonReentrant {
     /// @dev ensure that only the owner of the NFT can call this function
-    require(ownerOf(_id) == msg.sender, 'OPT02');
+    require(ownerOf(id) == msg.sender, 'OPT02');
     /// @dev pull the option data from storage and keep in memory to check requirements and exercise
-    Option memory option = options[_id];
+    Option memory option = options[id];
     require(option.vestDate <= block.timestamp && option.expiry >= block.timestamp, 'OPT03');
-    require(option.amount > 0, 'OPT04');
-    emit OptionExercised(_id);
+    emit OptionExercised(id);
     /// @dev burn the NFT
-    _burn(_id);
+    _burn(id);
     /// @dev delete the options struct so that the owner cannot call this function again
-    delete options[_id];
+    delete options[id];
     /// @dev now we actually perform the exercise functions
     _exercise(msg.sender, option.creator, option.amount, option.token, option.strike, option.paymentCurrency);
   }
@@ -200,20 +208,39 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
   }
 
-  /// @notice events
+  /// OptionCreated event
+  /// @param id The id of the option
+  /// @param holder The address to min the NFT to
+  /// @param amount The number of tokens that will be locked up in this option
+  /// @param token The token to lock up in this option
+  /// @param expiry The date in unix time when this option expires
+  /// @param vestDate The date when this option will be available to be exercised
+  /// @param strike The price at which this option can be exercised
+  /// @param paymentCurrency The currency the purchaser will pay for this option
+  /// @param creator The address that created the option
+  /// @param swappable Sets this option to be swappable
   event OptionCreated(
-    uint256 _id,
-    address _holder,
-    uint256 _amount,
-    address _token,
-    uint256 _expiry,
-    uint256 _vestDate,
-    uint256 _strike,
-    address _paymentCurrency,
-    address _creator,
-    bool _swappable
+    uint256 id,
+    address holder,
+    uint256 amount,
+    address token,
+    uint256 expiry,
+    uint256 vestDate,
+    uint256 strike,
+    address paymentCurrency,
+    address creator,
+    bool swappable
   );
-  event OptionExercised(uint256 _id);
-  event OptionBurned(uint256 _id);
-  event URISet(string _uri);
+
+  /// OptionExercised event
+  /// @param id The id of the option that was burned
+  event OptionExercised(uint256 id);
+
+  /// OptionBurned event, fired when an option is burned
+  /// @param id The id of the option that was burned
+  event OptionBurned(uint256 id);
+  
+  /// URISet event
+  /// @param uri The uri value that was set for the baseURI
+  event URISet(string uri);
 }
