@@ -59,8 +59,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   }
 
   modifier onlyAdmin() {
-    /// What would be your opinion on keeping the same error code format and adding a README.md to the project to describe the error code
-    require(admin == msg.sender, 'not admin');
+    require(admin == msg.sender, 'ADMIN');
     _;
   }
 
@@ -91,7 +90,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
 
   receive() external payable {}
 
-  /// Creates an option
+  /// @notice Creates an option, pulling in funds to the contract for escrow, and creating the struct in storage, and mints the NFT
   /// @param _holder The address to min the NFT to
   /// @param _amount The number of tokens that will be locked up in this option
   /// @param _token The token to lock up in this option
@@ -100,6 +99,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @param _strike The price at which this option can be exercised
   /// @param _paymentCurrency The currency the purchaser will pay for this option
   /// @param _swappable Sets this option to be swappable
+  /// @dev the NFT and Option storage struct are mapped to the same uint counter
   function createOption(
     address _holder,
     uint256 _amount,
@@ -113,12 +113,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     _tokenIds.increment();
     uint256 newItemId = _tokenIds.current();
     require(_amount > 0 && _token != address(0) && _expiry > block.timestamp, 'OPT01');
-    /// @dev pulls funds from the msg.sender into this contract for escrow to be locked until exercised
     TransferHelper.transferTokens(_token, msg.sender, address(this), _amount);
-    /// @dev generates the new option struct in storage mapped to the NFT Id
     options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender, _swappable);
-    /// @dev this safely mints an NFT to the _holder address at the current counter index newItemID.
-    /// @dev _safeMint ensures that the receiver address can receive and handle ERC721s - which is either a normal wallet, or a smart contract that has implemented ERC721 receiver
     _safeMint(_holder, newItemId);
     emit OptionCreated(
       newItemId,
@@ -134,22 +130,22 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     );
   }
 
+  /// @notice the function to physically exercise the option
+  /// @dev only the NFT owner can exercise this
+  /// @dev this will burn the NFT and delete the storage option struct
+  /// @dev uses the internal exerciseOption method to handle all payment processing
   function exerciseOption(uint256 id) external nonReentrant {
-    /// @dev ensure that only the owner of the NFT can call this function
     require(ownerOf(id) == msg.sender, 'OPT02');
-    /// @dev pull the option data from storage and keep in memory to check requirements and exercise
     Option memory option = options[id];
     require(option.vestDate <= block.timestamp && option.expiry >= block.timestamp, 'OPT03');
+    require(option.amount > 0, 'OPT04');
     emit OptionExercised(id);
-    /// @dev burn the NFT
     _burn(id);
-    /// @dev delete the options struct so that the owner cannot call this function again
     delete options[id];
-    /// @dev now we actually perform the exercise functions
     _exercise(msg.sender, option.creator, option.amount, option.token, option.strike, option.paymentCurrency);
   }
 
-  /// @notice this function will check the balances of the holder, transfer the proper amount to the
+  /// @notice this function processes the physical exercise payments, delivering tokens to the NFT owner, and payment to the creator
   function _exercise(
     address _holder,
     address _creator,
@@ -158,53 +154,44 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 _strike,
     address _paymentCurrency
   ) internal {
-    /// @dev calculate the total purchase amount, which is the strike times the amount
-    /// @dev adjusted for the token decimals: because strike is in token decimals, amount in paymentCurrency decimals, and we want to send paymentCurrency
-    /// @dev so we divide by tokenDecimals to be left with paymentCurrency decimals up top
     uint256 _totalPurchase = (_strike * _amount) / (10**Decimals(_token).decimals());
     require(IERC20(_paymentCurrency).balanceOf(_holder) >= _totalPurchase, 'OPT05');
-    /// @dev transfer the total purchase from the holder to the creator
     TransferHelper.transferPayment(weth, _paymentCurrency, _holder, payable(_creator), _totalPurchase);
-    /// @dev transfer the tokens in this contract to the holder
     TransferHelper.withdrawTokens(_token, _holder, _amount);
   }
 
+  /// @notice this is the special exercise function that can be called to an external smart contract to handle flash-swapping tokens
+  /// @param id is the NFT and Option id mapped to id
+  /// @param swapper is the special whitelisted swapper address - external smart contract that handles the flash swapping
+  /// @param path is the path which will go through the AMM for tokens to be swapped, may be direct or across the best priced path
+  /// @dev this method will transfer the NFT to the external swapper, and the swapper will call the physical exercise function back to this contract
   function specialExercise(
-    uint256 _id,
+    uint256 id,
     address swapper,
     address[] memory path
   ) external nonReentrant {
-    /// @dev ensure that only the owner of the NFT can call this function
     require(ownerOf(_id) == msg.sender, 'OPT02');
-    /// @dev pull the option data from storage and keep in memory to check requirements and exercise
-    Option memory option = options[_id];
+    Option memory option = options[id];
     require(option.vestDate <= block.timestamp && option.expiry >= block.timestamp, 'OPT03');
     require(option.amount > 0, 'OPT04');
     require(swappers[swapper], 'OPT09');
     require(path.length > 1, 'OPT10');
     require(option.swappable, 'OPT11');
-    _transfer(msg.sender, swapper, _id);
-    /// @dev call the swap function which will flash loan borrow tokens from an AMM and exercise the option and payout both parties
+    _transfer(msg.sender, swapper, id);
     uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());
-    SpecialSwap(swapper).specialSwap(_id, msg.sender, path, _totalPurchase);
+    SpecialSwap(swapper).specialSwap(id, msg.sender, path, _totalPurchase);
   }
 
   /// @notice function that will return expired, or burn un-vested options
   /// and will deliver back the tokens to the creator and delete the struct and option entirely
-  function burnOption(uint256 _id) external nonReentrant {
-    Option memory option = options[_id];
-    /// @dev only the creator or owner can burn it (not sure why the owner would burn it, but no reason they couldn't)
-    require(option.creator == msg.sender || ownerOf(_id) == msg.sender, 'OPT06');
-    /// @dev require that the expiration date is in the past or that the vestdate is in the future
+  function burnOption(uint256 id) external nonReentrant {
+    Option memory option = options[id];
+    require(option.creator == msg.sender || ownerOf(id) == msg.sender, 'OPT06');
     require(option.expiry < block.timestamp || option.vestDate > block.timestamp, 'OPT07');
-    /// @dev require amount to be greater than 0
     require(option.amount > 0, 'OPT08');
-    emit OptionBurned(_id);
-    /// @dev burn the NFT
-    _burn(_id);
-    /// @dev delete the options struct so that the owner cannot call this function again
-    delete options[_id];
-    /// @dev retun tokens back to creator
+    emit OptionBurned(id);
+    _burn(id);
+    delete options[id];
     TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
   }
 
