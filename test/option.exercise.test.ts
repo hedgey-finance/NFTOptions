@@ -8,6 +8,7 @@ const one = ethers.utils.parseEther('1');
 const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
+const inseconds = moment().add(30, 'seconds').unix().toString();
 
 describe('ContributorOptions exercise option', () => {
   let accounts: Signer[];
@@ -146,7 +147,7 @@ describe('ContributorOptions exercise option', () => {
     await token.transfer(holderAddress, one);
 
     const amount = one;
-    const expiry = yesterday;
+    const expiry = inseconds;
     const vestDate = yesterday;
     const swappable = false;
     const paymentCurrency = token.address;
@@ -166,7 +167,7 @@ describe('ContributorOptions exercise option', () => {
     const receipt = await createOptionTransaction.wait();
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
-
+    await new Promise((resolve) => setTimeout(resolve, 31000));
     await token.connect(holder).approve(contributorOptions.address, one);
     const exerciseOptionTransaction = contributorOptions.connect(holder).exerciseOption(optionId);
     await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");

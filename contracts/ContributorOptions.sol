@@ -170,7 +170,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     address swapper,
     address[] memory path
   ) external nonReentrant {
-    require(ownerOf(_id) == msg.sender, 'OPT02');
+    require(ownerOf(id) == msg.sender, 'OPT02');
     Option memory option = options[id];
     require(option.vestDate <= block.timestamp && option.expiry >= block.timestamp, 'OPT03');
     require(option.amount > 0, 'OPT04');
