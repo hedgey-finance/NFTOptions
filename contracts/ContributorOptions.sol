@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.13;
+pragma solidity 0.8.7;
 
 import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
 import '@openzeppelin/contracts/utils/Counters.sol';
@@ -17,6 +17,12 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIds;
 
+  // Mapping from token ID to owner address
+  mapping(uint256 => address) private _owners;
+
+  // Mapping owner address to token count
+  mapping(address => uint256) private _balances;
+
   /// @dev handles weth in case WETH is being held - this allows us to unwrap and deliver ETH upon redemption of a timelocked NFT with ETH
   address payable public weth;
   /// @dev baseURI is the URI directory where the metadata is stored
@@ -27,53 +33,6 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   mapping(address => bool) private swappers;
   /// @dev admin address
   address private admin;
-
-  constructor(
-    address payable _weth,
-    string memory uri,
-    address _admin
-  ) ERC721('HedgeyOptions', 'HDGOPT') {
-    weth = _weth;
-    baseURI = uri;
-    admin = _admin;
-  }
-
-  /// @dev internal function used by the standard ER721 function tokenURI to retrieve the baseURI privately held to visualize and get the metadata
-  function _baseURI() internal view override returns (string memory) {
-    return baseURI;
-  }
-
-  /// @notice function to set the base URI after the contract has been launched, only once - this is done by the admin
-  /// @notice there is no actual on-chain functions that require this URI to be anything beyond a blank string ("")
-  /// @param _uri is the
-  function updateBaseURI(string memory _uri) external {
-    /// @dev this function can only be called once - when the public variable uriSet is set to 0
-    require(uriSet == 0, 'NFT02');
-    /// @dev update the baseURI with the new _uri
-    baseURI = _uri;
-    /// @dev set the public variable uriSet to 1 so that this function cannot be called anymore
-    /// @dev cheaper to use uint8 than bool for this admin safety feature
-    uriSet = 1;
-    /// @dev emit event of the update uri
-    emit URISet(_uri);
-  }
-
-  modifier onlyAdmin() {
-    require(admin == msg.sender, 'ADMIN');
-    _;
-  }
-
-  function whitelistSwapper(address _swapper) external onlyAdmin {
-    swappers[_swapper] = true;
-  }
-
-  function changeAdmin(address _newAdmin) external onlyAdmin {
-    admin = _newAdmin;
-  }
-
-  function isSwapperWhitelist(address _swapper) external view returns (bool isWhiteListed) {
-    isWhiteListed = swappers[_swapper];
-  }
 
   struct Option {
     uint256 amount;
@@ -88,7 +47,60 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
 
   mapping(uint256 => Option) public options;
 
+  /// OptionCreated event
+  /// @param id The id of the option
+  /// @param holder The address to min the NFT to
+  /// @param amount The number of tokens that will be locked up in this option
+  /// @param token The token to lock up in this option
+  /// @param expiry The date in unix time when this option expires
+  /// @param vestDate The date when this option will be available to be exercised
+  /// @param strike The price at which this option can be exercised
+  /// @param paymentCurrency The currency the purchaser will pay for this option
+  /// @param creator The address that created the option
+  /// @param swappable Sets this option to be swappable
+  event OptionCreated(
+    uint256 id,
+    address holder,
+    uint256 amount,
+    address token,
+    uint256 expiry,
+    uint256 vestDate,
+    uint256 strike,
+    address paymentCurrency,
+    address creator,
+    bool swappable
+  );
+
+  /// OptionExercised event
+  /// @param id The id of the option that was burned
+  event OptionExercised(uint256 id);
+
+  /// OptionBurned event, fired when an option is burned
+  /// @param id The id of the option that was burned
+  event OptionBurned(uint256 id);
+
+  /// URISet event
+  /// @param uri The uri value that was set for the baseURI
+  event URISet(string uri);
+
+  constructor(
+    address payable _weth,
+    string memory uri,
+    address _admin,
+    string memory _name,
+    string memory _symbol
+  ) ERC721(_name, _symbol) {
+    weth = _weth;
+    baseURI = uri;
+    admin = _admin;
+  }
+
   receive() external payable {}
+
+  modifier onlyAdmin() {
+    require(admin == msg.sender, 'ADMIN');
+    _;
+  }
 
   /// @notice Creates an option, pulling in funds to the contract for escrow, and creating the struct in storage, and mints the NFT
   /// @param _holder The address to min the NFT to
@@ -137,7 +149,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   function exerciseOption(uint256 id) external nonReentrant {
     require(ownerOf(id) == msg.sender, 'OPT02');
     Option memory option = options[id];
-    require(option.vestDate <= block.timestamp && option.expiry >= block.timestamp, 'OPT03');
+    require(canTransfer(id), 'OPT03');
     require(option.amount > 0, 'OPT04');
     emit OptionExercised(id);
     _burn(id);
@@ -172,7 +184,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   ) external nonReentrant {
     require(ownerOf(id) == msg.sender, 'OPT02');
     Option memory option = options[id];
-    require(option.vestDate <= block.timestamp && option.expiry >= block.timestamp, 'OPT03');
+    require(canTransfer(id), 'OPT03');
     require(option.amount > 0, 'OPT04');
     require(swappers[swapper], 'OPT09');
     require(path.length > 1, 'OPT10');
@@ -187,7 +199,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   function burnOption(uint256 id) external nonReentrant {
     Option memory option = options[id];
     require(option.creator == msg.sender || ownerOf(id) == msg.sender, 'OPT06');
-    require(option.expiry < block.timestamp || option.vestDate > block.timestamp, 'OPT07');
+    require(!canTransfer(id), 'OPT07');
     require(option.amount > 0, 'OPT08');
     emit OptionBurned(id);
     _burn(id);
@@ -195,39 +207,70 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
   }
 
-  /// OptionCreated event
-  /// @param id The id of the option
-  /// @param holder The address to min the NFT to
-  /// @param amount The number of tokens that will be locked up in this option
-  /// @param token The token to lock up in this option
-  /// @param expiry The date in unix time when this option expires
-  /// @param vestDate The date when this option will be available to be exercised
-  /// @param strike The price at which this option can be exercised
-  /// @param paymentCurrency The currency the purchaser will pay for this option
-  /// @param creator The address that created the option
-  /// @param swappable Sets this option to be swappable
-  event OptionCreated(
-    uint256 id,
-    address holder,
-    uint256 amount,
-    address token,
-    uint256 expiry,
-    uint256 vestDate,
-    uint256 strike,
-    address paymentCurrency,
-    address creator,
-    bool swappable
-  );
+  function whitelistSwapper(address _swapper) external onlyAdmin {
+    swappers[_swapper] = true;
+  }
 
-  /// OptionExercised event
-  /// @param id The id of the option that was burned
-  event OptionExercised(uint256 id);
+  function changeAdmin(address _newAdmin) external onlyAdmin {
+    admin = _newAdmin;
+  }
 
-  /// OptionBurned event, fired when an option is burned
-  /// @param id The id of the option that was burned
-  event OptionBurned(uint256 id);
+  /// @notice function to set the base URI after the contract has been launched, only once - this is done by the admin
+  /// @notice there is no actual on-chain functions that require this URI to be anything beyond a blank string ("")
+  /// @param _uri is the
+  function updateBaseURI(string memory _uri) external {
+    /// @dev this function can only be called once - when the public variable uriSet is set to 0
+    require(uriSet == 0, 'NFT02');
+    /// @dev update the baseURI with the new _uri
+    baseURI = _uri;
+    /// @dev set the public variable uriSet to 1 so that this function cannot be called anymore
+    /// @dev cheaper to use uint8 than bool for this admin safety feature
+    uriSet = 1;
+    /// @dev emit event of the update uri
+    emit URISet(_uri);
+  }
+
+  /// @notice function to determine if a swapper address is whitelisted or not
+  function isSwapperWhitelist(address _swapper) public view returns (bool isWhiteListed) {
+    isWhiteListed = swappers[_swapper];
+  }
+
+  /// @notice function to determine if an NFT can be transferred
+  /// @dev only NFTs that are vested and NOT expired can be transferred
+  function canTransfer(uint256 id) public view returns (bool transferable) {
+    Option memory option = options[id];
+    transferable = false;
+    if (option.vestDate <= block.timestamp && option.expiry >= block.timestamp) {
+      transferable = true;
+    }
+  }
+
   
-  /// URISet event
-  /// @param uri The uri value that was set for the baseURI
-  event URISet(string uri);
+  /// @notice override the internal _transfer function such that we require canTransfer == true
+  function _transfer(
+    address from,
+    address to,
+    uint256 tokenId
+  ) internal virtual override {
+    require(ERC721.ownerOf(tokenId) == from, 'ERC721: transfer from incorrect owner');
+    require(to != address(0), 'ERC721: transfer to the zero address');
+    require(canTransfer(tokenId), 'OPT03');
+    _beforeTokenTransfer(from, to, tokenId);
+
+    // Clear approvals from the previous owner
+    _approve(address(0), tokenId);
+
+    _balances[from] -= 1;
+    _balances[to] += 1;
+    _owners[tokenId] = to;
+
+    emit Transfer(from, to, tokenId);
+
+    _afterTokenTransfer(from, to, tokenId);
+  }
+
+  /// @dev internal function used by the standard ER721 function tokenURI to retrieve the baseURI privately held to visualize and get the metadata
+  function _baseURI() internal view override returns (string memory) {
+    return baseURI;
+  }
 }
