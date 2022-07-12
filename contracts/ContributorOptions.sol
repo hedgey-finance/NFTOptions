@@ -22,13 +22,12 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
 
   // Mapping owner address to token count
   mapping(address => uint256) private _balances;
-
-  /// @dev handles weth in case WETH is being held - this allows us to unwrap and deliver ETH upon redemption of a timelocked NFT with ETH
-  address payable public weth;
   /// @dev baseURI is the URI directory where the metadata is stored
   string private baseURI;
+  /// @dev handles weth in case WETH is being held - this allows us to unwrap and deliver ETH upon redemption of a timelocked NFT with ETH
+  address payable public weth;
   /// @dev this is a counter used so that the baseURI can only be set once after deployment
-  uint8 private uriSet = 0;
+  uint8 private uriSet;
   /// @dev internal whitelist of swapper contracts
   mapping(address => bool) private swappers;
   /// @dev admin address
@@ -59,25 +58,25 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @param creator The address that created the option
   /// @param swappable Sets this option to be swappable
   event OptionCreated(
-    uint256 id,
-    address holder,
+    uint256 indexed id,
+    address indexed holder,
     uint256 amount,
     address token,
     uint256 expiry,
     uint256 vestDate,
     uint256 strike,
     address paymentCurrency,
-    address creator,
+    address indexed creator,
     bool swappable
   );
 
   /// OptionExercised event
   /// @param id The id of the option that was burned
-  event OptionExercised(uint256 id);
+  event OptionExercised(uint256 indexed id);
 
   /// OptionBurned event, fired when an option is burned
   /// @param id The id of the option that was burned
-  event OptionBurned(uint256 id);
+  event OptionBurned(uint256 indexed id);
 
   /// URISet event
   /// @param uri The uri value that was set for the baseURI
@@ -211,6 +210,10 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     swappers[_swapper] = true;
   }
 
+  function removeSwapper(address _swapper) external onlyAdmin {
+    swappers[_swapper] = false;
+  }
+
   function changeAdmin(address _newAdmin) external onlyAdmin {
     admin = _newAdmin;
   }
@@ -239,7 +242,6 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @dev only NFTs that are vested and NOT expired can be transferred
   function canTransfer(uint256 id) public view returns (bool transferable) {
     Option memory option = options[id];
-    transferable = false;
     if (option.vestDate <= block.timestamp && option.expiry >= block.timestamp) {
       transferable = true;
     }
