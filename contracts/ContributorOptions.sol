@@ -19,19 +19,16 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
 
   // Mapping from token ID to owner address
   mapping(uint256 => address) private _owners;
-
   // Mapping owner address to token count
   mapping(address => uint256) private _balances;
   /// @dev baseURI is the URI directory where the metadata is stored
   string private baseURI;
-  /// @dev handles weth in case WETH is being held - this allows us to unwrap and deliver ETH upon redemption of a timelocked NFT with ETH
-  address payable public weth;
-  /// @dev this is a counter used so that the baseURI can only be set once after deployment
-  uint8 private uriSet;
   /// @dev internal whitelist of swapper contracts
   mapping(address => bool) private swappers;
   /// @dev admin address
   address private admin;
+  /// @dev handles weth in case WETH is being held - this allows us to unwrap and deliver ETH upon redemption of a timelocked NFT with ETH
+  address payable public weth;
 
   struct Option {
     uint256 amount;
@@ -83,14 +80,12 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   event URISet(string uri);
 
   constructor(
-    address payable _weth,
-    string memory uri,
-    address _admin,
     string memory _name,
-    string memory _symbol
+    string memory _symbol,
+    address payable _weth,
+    address _admin
   ) ERC721(_name, _symbol) {
     weth = _weth;
-    baseURI = uri;
     admin = _admin;
   }
 
@@ -218,18 +213,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     admin = _newAdmin;
   }
 
-  /// @notice function to set the base URI after the contract has been launched, only once - this is done by the admin
-  /// @notice there is no actual on-chain functions that require this URI to be anything beyond a blank string ("")
-  /// @param _uri is the
-  function updateBaseURI(string memory _uri) external {
-    /// @dev this function can only be called once - when the public variable uriSet is set to 0
-    require(uriSet == 0, 'NFT02');
-    /// @dev update the baseURI with the new _uri
+  function updateBaseURI(string memory _uri) external onlyAdmin {
     baseURI = _uri;
-    /// @dev set the public variable uriSet to 1 so that this function cannot be called anymore
-    /// @dev cheaper to use uint8 than bool for this admin safety feature
-    uriSet = 1;
-    /// @dev emit event of the update uri
     emit URISet(_uri);
   }
 

@@ -3,12 +3,12 @@ import { Contract, Signer } from 'ethers';
 import { ethers } from 'hardhat';
 import moment from 'moment';
 
-const baseURI = 'https://nft.hedgey.finance/hardhat/';
+//const baseURI = 'https://nft.hedgey.finance/hardhat/';
 const one = ethers.utils.parseEther('1');
 const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
-const inseconds = moment().add(30, 'seconds').unix().toString();
+const inseconds = moment().add(5, 'seconds').unix().toString();
 
 describe('ContributorOptions exercise option', () => {
   let accounts: Signer[];
@@ -30,7 +30,7 @@ describe('ContributorOptions exercise option', () => {
     token = await Token.deploy(initialSupply, 'Token', 'TKN');
 
     const ContributorOptions = await ethers.getContractFactory('ContributorOptions');
-    contributorOptions = await ContributorOptions.deploy(weth.address, baseURI, adminAddress);
+    contributorOptions = await ContributorOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
   });
 
   it('should excercise an option', async () => {
@@ -167,7 +167,7 @@ describe('ContributorOptions exercise option', () => {
     const receipt = await createOptionTransaction.wait();
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
-    await new Promise((resolve) => setTimeout(resolve, 31000));
+    await new Promise((resolve) => setTimeout(resolve, 60000));
     await token.connect(holder).approve(contributorOptions.address, one);
     const exerciseOptionTransaction = contributorOptions.connect(holder).exerciseOption(optionId);
     await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");

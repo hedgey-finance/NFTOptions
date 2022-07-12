@@ -3,7 +3,7 @@ import { BigNumber, Contract, Signer } from 'ethers';
 import { ethers } from 'hardhat';
 import moment from 'moment';
 
-const baseURI = 'https://nft.hedgey.finance/hardhat/';
+//const baseURI = 'https://nft.hedgey.finance/hardhat/';
 const one = ethers.utils.parseEther('1');
 const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
@@ -29,7 +29,7 @@ describe('ContributorOptions create option', () => {
     token = await Token.deploy(initialSupply, 'Token', 'TKN');
 
     const ContributorOptions = await ethers.getContractFactory('ContributorOptions');
-    contributorOptions = await ContributorOptions.deploy(weth.address, baseURI, adminAddress);
+    contributorOptions = await ContributorOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
   });
 
   it('should create an option with a token', async () => {
