@@ -1,26 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.7;
 
-import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
+//import './ERC721/ERC721.sol';
 import '@openzeppelin/contracts/utils/Counters.sol';
-import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
+import './ERC721/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './interfaces/Decimals.sol';
 import './interfaces/SpecialSwap.sol';
 import './libraries/TransferHelper.sol';
-import 'hardhat/console.sol';
+//import 'hardhat/console.sol';
 
 contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIds;
 
-  // Mapping from token ID to owner address
-  mapping(uint256 => address) private _owners;
-  // Mapping owner address to token count
-  mapping(address => uint256) private _balances;
   /// @dev baseURI is the URI directory where the metadata is stored
   string private baseURI;
   /// @dev internal whitelist of swapper contracts
@@ -238,8 +234,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     address from,
     address to,
     uint256 tokenId
-  ) internal virtual override {
-    require(ERC721.ownerOf(tokenId) == from, 'ERC721: transfer from incorrect owner');
+  ) internal override {
+    require(ownerOf(tokenId) == from, 'ERC721: transfer from incorrect owner');
     require(to != address(0), 'ERC721: transfer to the zero address');
     require(canTransfer(tokenId), 'OPT03');
     _beforeTokenTransfer(from, to, tokenId);
