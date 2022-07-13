@@ -8,7 +8,7 @@ const one = ethers.utils.parseEther('1');
 const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
-const inseconds = moment().add(5, 'seconds').unix().toString();
+
 
 describe('ContributorOptions transfering options', () => {
   let accounts: Signer[];
@@ -71,5 +71,72 @@ describe('ContributorOptions transfering options', () => {
     const to = transferEvent.args['to'];
     const tokenId = transferEvent.args['tokenId'];
     await expect(transferedOption).to.emit(contributorOptions, 'Transfer').withArgs(from, to, tokenId);
+  });
+
+  it('unvested options cannot be transferred', async () => {
+    const holder = accounts[1];
+    const holderAddress = await holder.getAddress();
+
+    await token.approve(contributorOptions.address, one);
+    await token.transfer(holderAddress, one);
+
+    const amount = one;
+    const expiry = tomorrow;
+    const vestDate = tomorrow;
+    const swappable = false;
+    const paymentCurrency = token.address;
+    const strike = one;
+
+    const createOptionTransaction = await contributorOptions.createOption(
+      holderAddress,
+      amount,
+      token.address,
+      expiry,
+      vestDate,
+      strike,
+      paymentCurrency,
+      swappable
+    );
+
+    const receipt = await createOptionTransaction.wait();
+    const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
+    const optionId = event.args['id'];
+
+    await expect(
+      contributorOptions.connect(holder).transferFrom(holderAddress, adminAddress, optionId)
+    ).to.be.revertedWith('OPT03');
+  });
+  it('expired options cannot be transferred', async () => {
+    const holder = accounts[1];
+    const holderAddress = await holder.getAddress();
+
+    await token.approve(contributorOptions.address, one);
+    await token.transfer(holderAddress, one);
+
+    const amount = one;
+    const expiry = (Math.round(Date.now()/1000)+40).toString();
+    const vestDate = yesterday;
+    const swappable = false;
+    const paymentCurrency = token.address;
+    const strike = one;
+
+    const createOptionTransaction = await contributorOptions.createOption(
+      holderAddress,
+      amount,
+      token.address,
+      expiry,
+      vestDate,
+      strike,
+      paymentCurrency,
+      swappable
+    );
+
+    const receipt = await createOptionTransaction.wait();
+    const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
+    const optionId = event.args['id'];
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await expect(
+      contributorOptions.connect(holder).transferFrom(holderAddress, adminAddress, optionId)
+    ).to.be.revertedWith('OPT03');
   });
 });

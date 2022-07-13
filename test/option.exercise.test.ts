@@ -2,13 +2,13 @@ import { expect } from 'chai';
 import { Contract, Signer } from 'ethers';
 import { ethers } from 'hardhat';
 import moment from 'moment';
+import helpers from '@nomicfoundation/hardhat-network-helpers';
 
 //const baseURI = 'https://nft.hedgey.finance/hardhat/';
 const one = ethers.utils.parseEther('1');
 const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
-const inseconds = moment().add(5, 'seconds').unix().toString();
 
 describe('ContributorOptions exercise option', () => {
   let accounts: Signer[];
@@ -145,9 +145,8 @@ describe('ContributorOptions exercise option', () => {
 
     await token.approve(contributorOptions.address, one);
     await token.transfer(holderAddress, one);
-
     const amount = one;
-    const expiry = inseconds;
+    const expiry = Math.round(Date.now()/1000)+25//(await helpers.time.latest())+1;
     const vestDate = yesterday;
     const swappable = false;
     const paymentCurrency = token.address;
@@ -167,7 +166,8 @@ describe('ContributorOptions exercise option', () => {
     const receipt = await createOptionTransaction.wait();
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
-    await new Promise((resolve) => setTimeout(resolve, 60000));
+    //await helpers.time.increase(2);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     await token.connect(holder).approve(contributorOptions.address, one);
     const exerciseOptionTransaction = contributorOptions.connect(holder).exerciseOption(optionId);
     await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");
