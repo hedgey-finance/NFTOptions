@@ -136,7 +136,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @dev only the NFT owner can exercise this
   /// @dev this will burn the NFT and delete the storage option struct
   /// @dev uses the internal exerciseOption method to handle all payment processing
-  function exerciseOption(uint256 id) external nonReentrant {
+  function exerciseOption(uint256 id) external payable nonReentrant {
     require(ownerOf(id) == msg.sender, 'OPT02');
     Option memory option = options[id];
     require(canTransfer(id), 'OPT03');
@@ -179,9 +179,10 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     require(swappers[swapper], 'OPT09');
     require(path.length > 1, 'OPT10');
     require(option.swappable, 'OPT11');
+    require(path[0] == option.token && path[path.length - 1] == option.paymentCurrency, 'OPT12');
     _transfer(msg.sender, swapper, id);
     uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());
-    SpecialSwap(swapper).specialSwap(id, msg.sender, path, _totalPurchase);
+    SpecialSwap(swapper).specialSwap(id, payable(msg.sender), path, _totalPurchase);
   }
 
   /// @notice function that will return expired, or burn un-vested options
@@ -195,6 +196,15 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     _burn(id);
     delete options[id];
     TransferHelper.withdrawTokens(option.token, option.creator, option.amount);
+  }
+
+  /// @notice getter function for specific options for external contracts
+  function getOptionDetails(uint256 id) external view returns (uint256 amount, address token, address paymentCurrency, uint256 strike) {
+    Option memory option = options[id];
+    amount = option.amount;
+    token = option.token;
+    paymentCurrency = option.paymentCurrency;
+    strike = option.strike;
   }
 
   function whitelistSwapper(address _swapper) external onlyAdmin {

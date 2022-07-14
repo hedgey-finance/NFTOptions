@@ -1,8 +1,6 @@
 import '@nomiclabs/hardhat-etherscan';
 import '@nomiclabs/hardhat-waffle';
 import 'hardhat-gas-reporter';
-import 'solidity-coverage';
-import 'hardhat/common';
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
