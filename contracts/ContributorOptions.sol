@@ -120,7 +120,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     _tokenIds.increment();
     uint256 newItemId = _tokenIds.current();
     require(_amount > 0 && _token != address(0) && _expiry > block.timestamp, 'OPT01');
-    require(_holder != address(0) && _creator != address(0), 'OPT02');
+    uint256 _totalPurchase = (_strike * _amount) / (10**Decimals(_token).decimals());
+    require(_totalPurchase > 0 || _strike == 0, 'OPT011');
     TransferHelper.transferTokens(_token, msg.sender, address(this), _amount);
     options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, _creator, _swappable);
     _safeMint(_holder, newItemId);
