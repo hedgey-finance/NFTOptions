@@ -62,7 +62,7 @@ library TransferHelper {
       } else {
         /// @dev we want to deliver WETH from ETH here for better handling at contract
         IWETH(weth).deposit{value: amount}();
-        assert(IWETH(weth).transfer(to, amount));
+        require(IWETH(weth).transfer(to, amount));
       }
     } else {
       transferTokens(token, from, to, amount);

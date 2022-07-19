@@ -100,8 +100,12 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @param _vestDate The date when this option will be available to be exercised
   /// @param _strike The price at which this option can be exercised
   /// @param _paymentCurrency The currency the purchaser will pay for this option
+  /// @param _creator is the creator of the option, who has the authority to revoke the option pre vesting date and once expired.
+  /// ... the _creator is also the one who will get paid during the exercise of the option.
   /// @param _swappable Sets this option to be swappable
   /// @dev the NFT and Option storage struct are mapped to the same uint counter
+  /// @dev the _creator is a separate param from msg.sender in case someone is using a "hot wallet" to deploy, but the underlying true owner is the DAO contract or multi-sig
+  /// @dev ... additionally _creator being a unique param allows for smart contracts to build on top of this, relaying the original creator during the option creation (ie for option OTC sales)
   function createOption(
     address _holder,
     uint256 _amount,
@@ -110,13 +114,15 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     uint256 _vestDate,
     uint256 _strike,
     address _paymentCurrency,
+    address _creator,
     bool _swappable
   ) external nonReentrant {
     _tokenIds.increment();
     uint256 newItemId = _tokenIds.current();
     require(_amount > 0 && _token != address(0) && _expiry > block.timestamp, 'OPT01');
+    require(_holder != address(0) && _creator != address(0), 'OPT02');
     TransferHelper.transferTokens(_token, msg.sender, address(this), _amount);
-    options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, msg.sender, _swappable);
+    options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, _creator, _swappable);
     _safeMint(_holder, newItemId);
     emit OptionCreated(
       newItemId,
@@ -127,7 +133,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
       _vestDate,
       _strike,
       _paymentCurrency,
-      msg.sender,
+      _creator,
       _swappable
     );
   }
