@@ -120,8 +120,9 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     _tokenIds.increment();
     uint256 newItemId = _tokenIds.current();
     require(_amount > 0 && _token != address(0) && _expiry > block.timestamp, 'OPT01');
+    require(_holder != address(0) && _creator != address(0), 'OPT02');
     uint256 _totalPurchase = (_strike * _amount) / (10**Decimals(_token).decimals());
-    require(_totalPurchase > 0 || _strike == 0, 'OPT011');
+    require(_totalPurchase > 0 || _strike == 0, 'OPT03');
     TransferHelper.transferTokens(_token, msg.sender, address(this), _amount);
     options[newItemId] = Option(_amount, _token, _expiry, _vestDate, _strike, _paymentCurrency, _creator, _swappable);
     _safeMint(_holder, newItemId);
@@ -144,10 +145,10 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   /// @dev this will burn the NFT and delete the storage option struct
   /// @dev uses the internal exerciseOption method to handle all payment processing
   function exerciseOption(uint256 id) external payable nonReentrant {
-    require(ownerOf(id) == msg.sender, 'OPT02');
+    require(ownerOf(id) == msg.sender, 'OPT04');
     Option memory option = options[id];
-    require(canTransfer(id), 'OPT03');
-    require(option.amount > 0, 'OPT04');
+    require(canTransfer(id), 'OPT05');
+    require(option.amount > 0, 'OPT06');
     emit OptionExercised(id);
     _burn(id);
     delete options[id];
@@ -179,14 +180,14 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     address swapper,
     address[] memory path
   ) external nonReentrant {
-    require(ownerOf(id) == msg.sender, 'OPT02');
+    require(ownerOf(id) == msg.sender, 'OPT04');
     Option memory option = options[id];
-    require(canTransfer(id), 'OPT03');
-    require(option.amount > 0, 'OPT04');
-    require(swappers[swapper], 'OPT09');
-    require(path.length > 1, 'OPT10');
-    require(option.swappable, 'OPT11');
-    require(path[0] == option.token && path[path.length - 1] == option.paymentCurrency, 'OPT12');
+    require(canTransfer(id), 'OPT05');
+    require(option.amount > 0, 'OPT06');
+    require(swappers[swapper], 'OPT07');
+    require(path.length > 1, 'OPT08');
+    require(option.swappable, 'OPT09');
+    require(path[0] == option.token && path[path.length - 1] == option.paymentCurrency, 'OPT10');
     _transfer(msg.sender, swapper, id);
     uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());
     SpecialSwap(swapper).specialSwap(id, payable(msg.sender), path, _totalPurchase);
@@ -197,8 +198,8 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   function burnOption(uint256 id) external nonReentrant {
     Option memory option = options[id];
     require(option.creator == msg.sender || ownerOf(id) == msg.sender, 'OPT06');
-    require(!canTransfer(id), 'OPT07');
-    require(option.amount > 0, 'OPT08');
+    require(!canTransfer(id), 'OPT11');
+    require(option.amount > 0, 'OPT06');
     emit OptionBurned(id);
     _burn(id);
     delete options[id];
@@ -254,7 +255,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
   ) internal override {
     require(ownerOf(tokenId) == from, 'ERC721: transfer from incorrect owner');
     require(to != address(0), 'ERC721: transfer to the zero address');
-    require(canTransfer(tokenId), 'OPT03');
+    require(canTransfer(tokenId), 'OPT05');
     _beforeTokenTransfer(from, to, tokenId);
 
     // Clear approvals from the previous owner
