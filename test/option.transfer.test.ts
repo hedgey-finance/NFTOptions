@@ -10,12 +10,12 @@ const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
 
 
-describe('ContributorOptions transfering options', () => {
+describe('NFTOptions transfering options', () => {
   let accounts: Signer[];
   let admin: Signer;
   let adminAddress: string;
   let weth: Contract;
-  let contributorOptions: Contract;
+  let nftOptions: Contract;
   let token: Contract;
 
   before(async () => {
@@ -29,8 +29,8 @@ describe('ContributorOptions transfering options', () => {
     const Token = await ethers.getContractFactory('Token');
     token = await Token.deploy(initialSupply, 'Token', 'TKN');
 
-    const ContributorOptions = await ethers.getContractFactory('ContributorOptions');
-    contributorOptions = await ContributorOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
+    const NFTOptions = await ethers.getContractFactory('NFTOptions');
+    nftOptions = await NFTOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
   });
 
   it('should transfer option', async () => {
@@ -77,7 +77,7 @@ describe('ContributorOptions transfering options', () => {
     const holder = accounts[1];
     const holderAddress = await holder.getAddress();
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
 
     const amount = one;
@@ -87,7 +87,7 @@ describe('ContributorOptions transfering options', () => {
     const paymentCurrency = token.address;
     const strike = one;
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -103,14 +103,14 @@ describe('ContributorOptions transfering options', () => {
     const optionId = event.args['id'];
 
     await expect(
-      contributorOptions.connect(holder).transferFrom(holderAddress, adminAddress, optionId)
+      nftOptions.connect(holder).transferFrom(holderAddress, adminAddress, optionId)
     ).to.be.revertedWith('OPT03');
   });
   it('expired options cannot be transferred', async () => {
     const holder = accounts[1];
     const holderAddress = await holder.getAddress();
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
 
     const amount = one;
@@ -120,7 +120,7 @@ describe('ContributorOptions transfering options', () => {
     const paymentCurrency = token.address;
     const strike = one;
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -136,7 +136,7 @@ describe('ContributorOptions transfering options', () => {
     const optionId = event.args['id'];
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await expect(
-      contributorOptions.connect(holder).transferFrom(holderAddress, adminAddress, optionId)
+      nftOptions.connect(holder).transferFrom(holderAddress, adminAddress, optionId)
     ).to.be.revertedWith('OPT03');
   });
 });

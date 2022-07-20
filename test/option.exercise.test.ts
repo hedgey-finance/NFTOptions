@@ -10,12 +10,12 @@ const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
 
-describe('ContributorOptions exercise option', () => {
+describe('NFTOptions exercise option', () => {
   let accounts: Signer[];
   let admin: Signer;
   let adminAddress: string;
   let weth: Contract;
-  let contributorOptions: Contract;
+  let nftOptions: Contract;
   let token: Contract;
 
   before(async () => {
@@ -29,15 +29,15 @@ describe('ContributorOptions exercise option', () => {
     const Token = await ethers.getContractFactory('Token');
     token = await Token.deploy(initialSupply, 'Token', 'TKN');
 
-    const ContributorOptions = await ethers.getContractFactory('ContributorOptions');
-    contributorOptions = await ContributorOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
+    const NFTOptions = await ethers.getContractFactory('NFTOptions');
+    nftOptions = await NFTOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
   });
 
   it('should excercise an option', async () => {
     const holder = accounts[1];
     const holderAddress = await holder.getAddress();
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
 
     const amount = one;
@@ -47,7 +47,7 @@ describe('ContributorOptions exercise option', () => {
     const paymentCurrency = token.address;
     const strike = one;
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -62,12 +62,12 @@ describe('ContributorOptions exercise option', () => {
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
 
-    await token.connect(holder).approve(contributorOptions.address, one);
-    const exerciseOptionTransaction = await contributorOptions.connect(holder).exerciseOption(optionId);
+    await token.connect(holder).approve(nftOptions.address, one);
+    const exerciseOptionTransaction = await nftOptions.connect(holder).exerciseOption(optionId);
     const exerciseOptionReceipt = await exerciseOptionTransaction.wait();
     const exerciseOptionEvent = exerciseOptionReceipt.events.find((event: any) => event.event === 'OptionExercised');
     const exerciseOptionId = exerciseOptionEvent.args['id'];
-    await expect(exerciseOptionTransaction).to.emit(contributorOptions, 'OptionExercised').withArgs(exerciseOptionId);
+    await expect(exerciseOptionTransaction).to.emit(nftOptions, 'OptionExercised').withArgs(exerciseOptionId);
   });
 
   it('only the owner of the option can exercise it', async () => {
@@ -76,7 +76,7 @@ describe('ContributorOptions exercise option', () => {
 
     const notTheHolder = accounts[2];
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
 
     const amount = one;
@@ -86,7 +86,7 @@ describe('ContributorOptions exercise option', () => {
     const paymentCurrency = token.address;
     const strike = one;
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -101,7 +101,7 @@ describe('ContributorOptions exercise option', () => {
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
 
-    const exerciseOptionTransaction = contributorOptions.connect(notTheHolder).exerciseOption(optionId);
+    const exerciseOptionTransaction = nftOptions.connect(notTheHolder).exerciseOption(optionId);
     await expect(exerciseOptionTransaction).to.be.revertedWith("OPT02");
   });
 
@@ -109,7 +109,7 @@ describe('ContributorOptions exercise option', () => {
     const holder = accounts[1];
     const holderAddress = await holder.getAddress();
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
 
     const amount = one;
@@ -119,7 +119,7 @@ describe('ContributorOptions exercise option', () => {
     const paymentCurrency = token.address;
     const strike = one;
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -134,8 +134,8 @@ describe('ContributorOptions exercise option', () => {
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
 
-    await token.connect(holder).approve(contributorOptions.address, one);
-    const exerciseOptionTransaction = contributorOptions.connect(holder).exerciseOption(optionId);
+    await token.connect(holder).approve(nftOptions.address, one);
+    const exerciseOptionTransaction = nftOptions.connect(holder).exerciseOption(optionId);
     await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");
   });
 
@@ -143,7 +143,7 @@ describe('ContributorOptions exercise option', () => {
     const holder = accounts[1];
     const holderAddress = await holder.getAddress();
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
     const amount = one;
     const expiry = Math.round(Date.now()/1000)+25//(await helpers.time.latest())+1;
@@ -152,7 +152,7 @@ describe('ContributorOptions exercise option', () => {
     const paymentCurrency = token.address;
     const strike = one;
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -168,8 +168,8 @@ describe('ContributorOptions exercise option', () => {
     const optionId = event.args['id'];
     //await helpers.time.increase(2);
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    await token.connect(holder).approve(contributorOptions.address, one);
-    const exerciseOptionTransaction = contributorOptions.connect(holder).exerciseOption(optionId);
+    await token.connect(holder).approve(nftOptions.address, one);
+    const exerciseOptionTransaction = nftOptions.connect(holder).exerciseOption(optionId);
     await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");
   });
 });

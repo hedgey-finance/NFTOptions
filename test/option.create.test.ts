@@ -9,12 +9,12 @@ const initialSupply = ethers.utils.parseEther('1000');
 const tomorrow = moment().add(1, 'day').unix().toString();
 const yesterday = moment().subtract(1, 'day').unix().toString();
 
-describe('ContributorOptions create option', () => {
+describe('NFTOptions create option', () => {
   let accounts: Signer[];
   let admin: Signer;
   let adminAddress: string;
   let weth: Contract;
-  let contributorOptions: Contract;
+  let nftOptions: Contract;
   let token: Contract;
 
   before(async () => {
@@ -28,15 +28,15 @@ describe('ContributorOptions create option', () => {
     const Token = await ethers.getContractFactory('Token');
     token = await Token.deploy(initialSupply, 'Token', 'TKN');
 
-    const ContributorOptions = await ethers.getContractFactory('ContributorOptions');
-    contributorOptions = await ContributorOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
+    const NFTOptions = await ethers.getContractFactory('NFTOptions');
+    nftOptions = await NFTOptions.deploy('Hedgey Options', 'HGOPT', weth.address, adminAddress);
   });
 
   it('should create an option with a token', async () => {
     const holder = accounts[1];
     const holderAddress = await holder.getAddress();
 
-    await token.approve(contributorOptions.address, one);
+    await token.approve(nftOptions.address, one);
 
     const amount = one;
     const expiry = tomorrow;
@@ -44,9 +44,9 @@ describe('ContributorOptions create option', () => {
     const swappable = false;
     const paymentCurrency = token.address;
     const strike = one;
-    const balanceBefore = await contributorOptions.balanceOf(holderAddress);
+    const balanceBefore = await nftOptions.balanceOf(holderAddress);
 
-    const createOptionTransaction = await contributorOptions.createOption(
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       token.address,
@@ -61,7 +61,7 @@ describe('ContributorOptions create option', () => {
     const optionId = event.args['id'];
 
     await expect(createOptionTransaction)
-      .to.emit(contributorOptions, 'OptionCreated')
+      .to.emit(nftOptions, 'OptionCreated')
       .withArgs(
         optionId,
         holderAddress,
@@ -74,7 +74,7 @@ describe('ContributorOptions create option', () => {
         adminAddress,
         swappable
       );
-    const balance = await contributorOptions.balanceOf(holderAddress);
+    const balance = await nftOptions.balanceOf(holderAddress);
     expect(balance).to.be.eq(balanceBefore.add(1));
   });
 
@@ -88,8 +88,8 @@ describe('ContributorOptions create option', () => {
     const swappable = false;
     const paymentCurrency = weth.address;
     const strike = one;
-    const balanceBefore = await contributorOptions.balanceOf(holderAddress);
-    const createOptionTransaction = await contributorOptions.createOption(
+    const balanceBefore = await nftOptions.balanceOf(holderAddress);
+    const createOptionTransaction = await nftOptions.createOption(
       holderAddress,
       amount,
       weth.address,
@@ -104,7 +104,7 @@ describe('ContributorOptions create option', () => {
     const optionId = event.args['id'];
 
     await expect(createOptionTransaction)
-      .to.emit(contributorOptions, 'OptionCreated')
+      .to.emit(nftOptions, 'OptionCreated')
       .withArgs(
         optionId,
         holderAddress,
@@ -117,7 +117,7 @@ describe('ContributorOptions create option', () => {
         adminAddress,
         swappable
       );
-    const balance = await contributorOptions.balanceOf(holderAddress);
+    const balance = await nftOptions.balanceOf(holderAddress);
     expect(balance).to.be.eq(balanceBefore.add(1));
   });
 });

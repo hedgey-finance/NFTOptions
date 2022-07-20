@@ -3,8 +3,8 @@ pragma solidity 0.8.7;
 
 import './interfaces/IWETH.sol';
 import './interfaces/INFTOptions.sol';
-import './interfaces/IUniswapV2Pair.sol';
-import './interfaces/IUniswapV2Factory.sol';
+import './interfaces/UniswapV2/IUniswapV2Pair.sol';
+import './interfaces/UniswapV2/IUniswapV2Factory.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
