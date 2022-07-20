@@ -12,7 +12,7 @@ import './interfaces/SpecialSwap.sol';
 import './libraries/TransferHelper.sol';
 //import 'hardhat/console.sol';
 
-contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
+contract NFTOptions is ERC721Enumerable, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIds;
@@ -186,7 +186,7 @@ contract ContributorOptions is ERC721Enumerable, ReentrancyGuard {
     require(option.amount > 0, 'OPT06');
     require(swappers[swapper], 'OPT07');
     require(path.length > 1, 'OPT08');
-    require(option.swappable, 'OPT09');
+    require(option.swappable && option.strike > 0, 'OPT09');
     require(path[0] == option.token && path[path.length - 1] == option.paymentCurrency, 'OPT10');
     _transfer(msg.sender, swapper, id);
     uint256 _totalPurchase = (option.strike * option.amount) / (10**Decimals(option.token).decimals());

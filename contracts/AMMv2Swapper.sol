@@ -32,35 +32,6 @@ contract AMMv2Swapper is ReentrancyGuard {
 
   receive() external payable {}
 
-  /// @dev this function gets called when we flash loan tokens from uniswap - its a callback from the uniswap pair pool
-  /// @dev when this is called we exercise the call option, and then swap back the tokens via the path and payback the uniswap pair pool
-  function uniswapV2Call(
-    address sender,
-    uint256 amount0,
-    uint256 amount1,
-    bytes memory data
-  ) external {
-    address token0 = IUniswapV2Pair(msg.sender).token0();
-    address token1 = IUniswapV2Pair(msg.sender).token1();
-    (uint256 reserveA, uint256 reserveB) = getReserves(token0, token1);
-    assert(msg.sender == IUniswapV2Factory(factory).getPair(token0, token1));
-    (uint256 optionId, address token, address paymentCurrency, address[] memory path, bool directSwap) = abi.decode(
-      data,
-      (uint256, address, address, address[], bool)
-    );
-    uint256 amountDue = amount0 == 0
-      ? getAmountIn(amount1, reserveA, reserveB)
-      : getAmountIn(amount0, reserveB, reserveA);
-    uint256 totalPurchase = amount0 == 0 ? amount1 : amount0;
-    /// we've already received the payment currency - exercise now to receive back the token
-    exercise(optionId, totalPurchase, paymentCurrency);
-    if (directSwap) {
-      SafeERC20.safeTransfer(IERC20(token), msg.sender, amountDue);
-    } else {
-      multiSwap(path, amountDue, 0, msg.sender);
-    }
-  }
-
   function specialSwap(
     uint256 optionId,
     address payable originalOwner,
@@ -103,6 +74,35 @@ contract AMMv2Swapper is ReentrancyGuard {
       } else {
         multiSwap(path, 0, IERC20(path[0]).balanceOf(address(this)), originalOwner);
       }
+    }
+  }
+
+  /// @dev this function gets called when we flash loan tokens from uniswap - its a callback from the uniswap pair pool
+  /// @dev when this is called we exercise the call option, and then swap back the tokens via the path and payback the uniswap pair pool
+  function uniswapV2Call(
+    address sender,
+    uint256 amount0,
+    uint256 amount1,
+    bytes memory data
+  ) external {
+    address token0 = IUniswapV2Pair(msg.sender).token0();
+    address token1 = IUniswapV2Pair(msg.sender).token1();
+    (uint256 reserveA, uint256 reserveB) = getReserves(token0, token1);
+    assert(msg.sender == IUniswapV2Factory(factory).getPair(token0, token1));
+    (uint256 optionId, address token, address paymentCurrency, address[] memory path, bool directSwap) = abi.decode(
+      data,
+      (uint256, address, address, address[], bool)
+    );
+    uint256 amountDue = amount0 == 0
+      ? getAmountIn(amount1, reserveA, reserveB)
+      : getAmountIn(amount0, reserveB, reserveA);
+    uint256 totalPurchase = amount0 == 0 ? amount1 : amount0;
+    /// we've already received the payment currency - exercise now to receive back the token
+    exercise(optionId, totalPurchase, paymentCurrency);
+    if (directSwap) {
+      SafeERC20.safeTransfer(IERC20(token), msg.sender, amountDue);
+    } else {
+      multiSwap(path, amountDue, 0, msg.sender);
     }
   }
 
