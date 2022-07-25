@@ -54,6 +54,7 @@ describe('NFTOptions create option', () => {
       vestDate,
       strike,
       paymentCurrency,
+      adminAddress,
       swappable
     );
     const receipt = await createOptionTransaction.wait();
@@ -97,6 +98,7 @@ describe('NFTOptions create option', () => {
       vestDate,
       strike,
       paymentCurrency,
+      adminAddress,
       swappable
     );
     const receipt = await createOptionTransaction.wait();
