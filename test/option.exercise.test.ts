@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { Contract, Signer } from 'ethers';
 import { ethers } from 'hardhat';
 import moment from 'moment';
-import helpers from '@nomicfoundation/hardhat-network-helpers';
+import { time, takeSnapshot } from '@nomicfoundation/hardhat-network-helpers';
 
 //const baseURI = 'https://nft.hedgey.finance/hardhat/';
 const one = ethers.utils.parseEther('1');
@@ -55,6 +55,7 @@ describe('NFTOptions exercise option', () => {
       vestDate,
       strike,
       paymentCurrency,
+      adminAddress,
       swappable
     );
 
@@ -94,6 +95,7 @@ describe('NFTOptions exercise option', () => {
       vestDate,
       strike,
       paymentCurrency,
+      adminAddress,
       swappable
     );
 
@@ -102,7 +104,7 @@ describe('NFTOptions exercise option', () => {
     const optionId = event.args['id'];
 
     const exerciseOptionTransaction = nftOptions.connect(notTheHolder).exerciseOption(optionId);
-    await expect(exerciseOptionTransaction).to.be.revertedWith("OPT02");
+    await expect(exerciseOptionTransaction).to.be.revertedWith("OPT04");
   });
 
   it('should not allow exercise if the vest date has not been reached', async () => {
@@ -127,6 +129,7 @@ describe('NFTOptions exercise option', () => {
       vestDate,
       strike,
       paymentCurrency,
+      adminAddress,
       swappable
     );
 
@@ -136,7 +139,7 @@ describe('NFTOptions exercise option', () => {
 
     await token.connect(holder).approve(nftOptions.address, one);
     const exerciseOptionTransaction = nftOptions.connect(holder).exerciseOption(optionId);
-    await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");
+    await expect(exerciseOptionTransaction).to.be.revertedWith("OPT05");
   });
 
   it('should not allow exercise if the option has expired', async () => {
@@ -146,7 +149,8 @@ describe('NFTOptions exercise option', () => {
     await token.approve(nftOptions.address, one);
     await token.transfer(holderAddress, one);
     const amount = one;
-    const expiry = Math.round(Date.now()/1000)+25//(await helpers.time.latest())+1;
+    const expiry = moment().add(1, 'day').unix().toString();
+    const twoDays = moment().add(2, 'day').unix();
     const vestDate = yesterday;
     const swappable = false;
     const paymentCurrency = token.address;
@@ -160,16 +164,18 @@ describe('NFTOptions exercise option', () => {
       vestDate,
       strike,
       paymentCurrency,
+      adminAddress,
       swappable
     );
 
     const receipt = await createOptionTransaction.wait();
     const event = receipt.events.find((event: any) => event.event === 'OptionCreated');
     const optionId = event.args['id'];
-    //await helpers.time.increase(2);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const snapshot = await takeSnapshot();
+    await time.increaseTo(twoDays);
     await token.connect(holder).approve(nftOptions.address, one);
     const exerciseOptionTransaction = nftOptions.connect(holder).exerciseOption(optionId);
-    await expect(exerciseOptionTransaction).to.be.revertedWith("OPT03");
+    await expect(exerciseOptionTransaction).to.be.revertedWith("OPT05");
+    await snapshot.restore();
   });
 });
