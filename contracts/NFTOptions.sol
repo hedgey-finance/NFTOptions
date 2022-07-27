@@ -10,6 +10,7 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './interfaces/Decimals.sol';
 import './interfaces/SpecialSwap.sol';
 import './libraries/TransferHelper.sol';
+
 //import 'hardhat/console.sol';
 
 contract NFTOptions is ERC721Enumerable, ReentrancyGuard {
@@ -207,7 +208,16 @@ contract NFTOptions is ERC721Enumerable, ReentrancyGuard {
   }
 
   /// @notice getter function for specific options for external contracts
-  function getOptionDetails(uint256 id) external view returns (uint256 amount, address token, address paymentCurrency, uint256 strike) {
+  function getOptionDetails(uint256 id)
+    external
+    view
+    returns (
+      uint256 amount,
+      address token,
+      address paymentCurrency,
+      uint256 strike
+    )
+  {
     Option memory option = options[id];
     amount = option.amount;
     token = option.token;
@@ -246,7 +256,6 @@ contract NFTOptions is ERC721Enumerable, ReentrancyGuard {
     }
   }
 
-  
   /// @notice override the internal _transfer function such that we require canTransfer == true
   function _transfer(
     address from,
